@@ -25,19 +25,59 @@ Assisted by Claude Code
 import json
 import sys
 from pathlib import Path
-from unittest import result
 from urllib.parse import urlparse
+import tqdm
 
 
 def main():
     if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <path-to-ro-crate-metadata.json>")
+        print(f"Usage: {sys.argv[0]} <path>")
+        print("  <path> can be:")
+        print("    - a single JSON file")
+        print("    - a folder (validates all *-ro-crate-metadata.json files)")
         sys.exit(1)
 
-    file_path = sys.argv[1]
-    result = validate_rocrate(file_path)
-    print(result)
-    sys.exit(0 if result.is_valid else 1)
+    path = Path(sys.argv[1])
+
+    if not path.exists():
+        print(f"Error: Path not found: {path}")
+        sys.exit(1)
+
+    # Single file
+    if path.is_file():
+        result = validate_rocrate(str(path))
+        print(f"{path.name}: {result}")
+        sys.exit(0 if result.is_valid else 1)
+
+    # Folder: find all *-ro-crate-metadata.json files
+    if path.is_dir():
+        files = sorted(path.glob("*"))
+        if not files:
+            print(f"No files found in {path}")
+            sys.exit(1)
+
+        all_valid = True
+        files_with_errors = []
+        files_with_warnings = []
+        files_without_errors_or_warnings = []
+        for f in tqdm.tqdm(files, desc="Validating files"):
+            result = validate_rocrate(str(f))
+            if result.errors:
+                all_valid = False
+                files_with_errors.append(f.name)
+            # elif result.warnings:
+            #     files_with_warnings.append(f.name)
+            # else:
+            #     files_without_errors_or_warnings.append(f.name)
+
+       print(f"  Files with errors ({len(files_with_errors)}):")
+       print(f" Files with warnings ({len(files_with_warnings)}):")
+    print(f"  Files without errors or warnings ({len(files_without_errors_or_warnings)}
+
+        sys.exit(0 if all_valid else 1)
+
+    print(f"Error: {path} is neither a file nor a directory")
+    sys.exit(1)
 
 
 class ValidationResult:
@@ -89,7 +129,7 @@ def validate_rocrate(file_path: str) -> ValidationResult:
     # SPEC says:
     # > If stored in a file, known as a Detached RO-Crate Metadata File,
     #   the filename SHOULD be ${prefix}-ro-crate-metadata.json rather than ro-crate-metadata.json
-    #   where the variable ${prefix} is a human readable version of the dataset’s ID or name,
+    #   where the variable ${prefix} is a human readable version of the dataset's ID or name,
     #   to signal that on disk, the presence of the file does not indicate an Attached RO-Crate Data Package.
     if not path.name.endswith("-ro-crate-metadata.json"):
         result.add_warning(
@@ -165,7 +205,7 @@ def validate_rocrate(file_path: str) -> ValidationResult:
     # Validate RO-Crate Metadata Descriptor
     # SPEC says (Root Data Entity section):
     # > The RO-Crate Metadata Document MUST contain a self-describing RO-Crate Metadata Descriptor with the @id value ro-crate-metadata.json
-    #   and @type CreativeWork. This descriptor MUST have an about property referencing the Root Data Entity’s @id.
+    #   and @type CreativeWork. This descriptor MUST have an about property referencing the Root Data Entity's @id.
     # and
     # >  Note: Even in Detached RO-Crate Packages, where the RO-Crate Metadata File may be absent
     #   or named with a prefix, the identifier ro-crate-metadata.json MUST be used within the RO-Crate JSON-LD.
