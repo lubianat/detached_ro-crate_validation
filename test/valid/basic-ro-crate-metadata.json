@@ -1,0 +1,18 @@
+{ "@context": "https://w3id.org/ro/crate/1.2/context",
+  "@graph": [
+
+    {
+      "@type": "CreativeWork",
+      "@id": "ro-crate-metadata.json",
+      "conformsTo": {"@id": "https://w3id.org/ro/crate/1.2"},
+      "about": {"@id": "https://idr.openmicroscopy.org/study/idr0001"},
+      "description": "RO-Crate Metadata Descriptor (this file)"
+    },
+    {
+      "@id": "https://idr.openmicroscopy.org/study/idr0001",
+      "@type": "Dataset",
+      "name": "Example Dataset",
+      "description": "The RO-Crate Root Data Entity"
+    }
+]
+}
