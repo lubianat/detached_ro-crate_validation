@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "detached-crate-validator"
+version = "0.0.1"
+
+[tool.setuptools]
+py-modules = ["detached_crate_validator"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]

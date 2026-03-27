@@ -7,6 +7,8 @@ Scope:
 * JUST the version 1.2 of the RO-Crate specification, and not later versions.
 * JUST detached RO-Crates, not attached ones.
 
+For a proper validation library see e.g. https://pypi.org/project/roc-validator/
+
 SPEC says:
 
 > A Detached RO-Crate Package is an RO-Crate, defined in an RO-Crate Metadata Document without a defined root directory,
@@ -292,3 +294,10 @@ if __name__ == "__main__":
 # > Any data entities in a Detached RO-Crate Package Package MUST be Web-based Data Entities.
 
 # > A Detached RO-Crate Package may still use #-based local identifiers for contextual entities.
+
+# > The concept of an RO-Crate Website is undefined for a Detached RO-Crate Package.
+
+# > To distribute a Detached RO-Crate Package and optionally to provide an RO-Crate Website,
+#  any Detached RO-Crate Package can be saved in a directory (and zipped or otherwise bundled)
+#  and will function as an Attached RO-Crate Package with no payload data.
+#  See the appendix on converting from Detached to Attached RO-Crate Package for further guidance on this.

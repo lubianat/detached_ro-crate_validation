@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from basic_ro_crate_checker import validate_rocrate
+from detached_crate_validator import validate_rocrate
 
 TEST_DIR = Path(__file__).parent
 
