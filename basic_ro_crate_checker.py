@@ -2,6 +2,11 @@
 """
 Minimal  Detached RO-Crate 1.2 Structure Validator
 
+Scope:
+
+* JUST the version 1.2 of the RO-Crate specification, and not later versions.
+* JUST detached RO-Crates, not attached ones.
+
 SPEC says:
 
 > A Detached RO-Crate Package is an RO-Crate, defined in an RO-Crate Metadata Document without a defined root directory,
@@ -18,6 +23,8 @@ Assisted by Claude Code
 import json
 import sys
 from pathlib import Path
+from unittest import result
+from urllib.parse import urlparse
 
 
 def main():
@@ -60,6 +67,9 @@ class ValidationResult:
         return "invalid:\n  - " + "\n  - ".join(self.errors)
 
 
+# TODO: Add support for absolute URIs.
+
+
 def validate_rocrate(file_path: str) -> ValidationResult:
     """Validate minimal detached RO-Crate 1.2 structure."""
     result = ValidationResult()
@@ -68,12 +78,9 @@ def validate_rocrate(file_path: str) -> ValidationResult:
     # SPEC says:
     # > Typically, software processing a Detached RO-Crate Package would be passed a path to a file,
     #   an absolute URI, or a JSON string or object, without a directory context.
-    # TODO: Add support for absolute URIs and JSON strings/objects if needed, but for now we only handle file paths.
     path = Path(file_path)
     if not path.exists():
         result.add_error(f"File not found: {file_path}")
-        return result
-
         return result
 
     # Check if name is {something}-ro-crate-metadata.json
@@ -172,6 +179,26 @@ def validate_rocrate(file_path: str) -> ValidationResult:
     if not has_type(descriptor, "CreativeWork"):
         result.add_error("Metadata Descriptor MUST have @type 'CreativeWork'")
 
+    # Check conformsTo
+    # SPEC says:
+    # > The conformsTo of the RO-Crate Metadata Descriptor SHOULD have a single value which is a
+    #   versioned permalink URI of the RO-Crate specification that the RO-Crate JSON-LD conforms to.
+    #   The URI SHOULD start with https://w3id.org/ro/crate/.
+    # NOTE: Unclear to me whether it MUST have a "conformsTo" property
+    # NOTE: Even though this is the 1.2 spec,it is explicitly not requiring that the conformsTo reference 1.2
+
+    conforms_to = descriptor.get("conformsTo")
+    if conforms_to is None:
+        result.add_warning("Metadata Descriptor missing 'conformsTo' property")
+    else:
+        conforms_to_id = get_id(conforms_to)
+        if conforms_to_id is None:
+            result.add_warning("Metadata Descriptor 'conformsTo' should be a reference")
+        elif not conforms_to_id.startswith("https://w3id.org/ro/crate/"):
+            result.add_warning(
+                "Metadata Descriptor 'conformsTo' SHOULD reference RO-Crate specification"
+            )
+
     # Check about (link to Root Data Entity)
     about = descriptor.get("about")
     if about is None:
@@ -185,16 +212,20 @@ def validate_rocrate(file_path: str) -> ValidationResult:
         )
         return result
 
-    # Check conformsTo
-    conforms_to = descriptor.get("conformsTo")
-    if conforms_to is None:
-        result.add_error("Metadata Descriptor missing 'conformsTo' property")
-    else:
-        conforms_to_id = get_id(conforms_to)
-        if conforms_to_id != "https://w3id.org/ro/crate/1.2":
-            result.add_error(
-                "Metadata Descriptor 'conformsTo' should reference RO-Crate specification"
-            )
+    # SPEC says:
+    # > In a Detached RO-Crate Package the root data entity SHOULD have an @id which is an absolute URL if it is available online.
+    #   If it is not yet, or will never be available online then @id MAY be any valid URI - including ./.
+    # NOTE: This ends up including the `ro-crate-metadata.json` @id as valid, perhaps a bug in the spec.
+    # NOTE: The spec is actually referring to URI-reference (see https://datatracker.ietf.org/doc/html/rfc3986) which is either a URI or a relative reference.
+
+    parsed = urlparse(root_id)
+    is_uri_reference = parsed.scheme or parsed.netloc or parsed.path
+
+    if not is_uri_reference:
+        result.add_error("Root Data Entity @id MUST be a valid URI-reference")
+
+    if not (root_id.startswith("http://") or root_id.startswith("https://")):
+        result.add_warning("Root Data Entity @id SHOULD be an absolute URL")
 
     # Find and validate Root Data Entity
     root_entity = entities_by_id.get(root_id)
@@ -257,3 +288,7 @@ if __name__ == "__main__":
 # > References to files and directories in the RO-Crate Metadata Document are all Web-based Data Entities.
 
 # > Any referenced contextual entities SHOULD also be described in the RO-Crate Metadata Document with the same identifier. Similarly any contextual entity in the RO-Crate Metadata Document SHOULD be linked to from at least one of the other entities using the same identifier.
+
+# > Any data entities in a Detached RO-Crate Package Package MUST be Web-based Data Entities.
+
+# > A Detached RO-Crate Package may still use #-based local identifiers for contextual entities.
