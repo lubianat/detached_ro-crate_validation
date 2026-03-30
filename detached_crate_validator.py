@@ -157,7 +157,8 @@ def validate_rocrate(file_path: str, heavy: bool = False) -> ValidationResult:
     # Check valid JSON-LD
     # SPEC says:
     # > The RO-Crate Metadata Document MUST be a document which is valid JSON-LD 1.0 in flattened and compacted form.
-    # TODO: Implement the checks for the particular JSON-LD version, and the flattened/compacted form if needed, but for now we just check if it's valid JSON.
+    # NOTE: We check structural properties of flattened+compacted JSON-LD (top-level shape, no nested nodes).
+    #       Full JSON-LD 1.0 parsing/round-trip validation is not yet implemented.
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -181,6 +182,14 @@ def validate_rocrate(file_path: str, heavy: bool = False) -> ValidationResult:
     if not isinstance(data, dict):
         result.add_error("Root must be a JSON object")
         return result
+
+    # Check flattened form: only @context and @graph at top level
+    unexpected_keys = set(data.keys()) - {"@context", "@graph"}
+    if unexpected_keys:
+        result.add_error(
+            f"Flattened JSON-LD must only have @context and @graph at top level, "
+            f"found unexpected keys: {', '.join(sorted(unexpected_keys))}"
+        )
 
     # Check @context exists and includes RO-Crate context
     # SPEC says:
@@ -217,6 +226,27 @@ def validate_rocrate(file_path: str, heavy: bool = False) -> ValidationResult:
     if not isinstance(graph, list):
         result.add_error("@graph must be a JSON array")
         return result
+
+    # Check flattened form: all @graph items must be objects with @id, no nested nodes
+    for entity in graph:
+        if not isinstance(entity, dict):
+            result.add_error("@graph items must be JSON objects")
+            continue
+        if "@id" not in entity:
+            result.add_warning(
+                "Entity in @graph is missing @id (expected in flattened JSON-LD)"
+            )
+        entity_id = entity.get("@id", "<unknown>")
+        for prop, val in entity.items():
+            if prop.startswith("@"):
+                continue
+            values = val if isinstance(val, list) else [val]
+            for v in values:
+                if _is_nested_node(v):
+                    result.add_error(
+                        f"Entity '{entity_id}': property '{prop}' contains a nested node object "
+                        f"(flattened JSON-LD requires all nodes in @graph)"
+                    )
 
     # Build index of entities by @id
     entities_by_id: dict[str, dict] = {}
@@ -309,6 +339,17 @@ def validate_rocrate(file_path: str, heavy: bool = False) -> ValidationResult:
 
 
 ###### Helper functions ######
+
+
+def _is_nested_node(value) -> bool:
+    """Check if a value is an inline node object that should be flattened."""
+    if not isinstance(value, dict):
+        return False
+    if set(value.keys()) == {"@id"}:
+        return False
+    if "@value" in value:
+        return False
+    return bool({"@id", "@type"} & set(value.keys()))
 
 
 def get_context_urls(context) -> set[str]:
