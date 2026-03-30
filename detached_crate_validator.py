@@ -27,17 +27,22 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 import tqdm
+from rdflib import Graph
 
 
 def main():
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <path>")
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <path> [--heavy]")
         print("  <path> can be:")
         print("    - a single JSON file")
         print("    - a folder (validates all *-ro-crate-metadata.json files)")
+        print(
+            "  [--heavy] optional flag to perform a more thorough validation. It includes rdflib parsing, which may be slow (specially with remote contexts)"
+        )
         sys.exit(1)
 
     path = Path(sys.argv[1])
+    heavy = "--heavy" in sys.argv
 
     if not path.exists():
         print(f"Error: Path not found: {path}")
@@ -45,7 +50,7 @@ def main():
 
     # Single file
     if path.is_file():
-        result = validate_rocrate(str(path))
+        result = validate_rocrate(str(path), heavy=heavy)
         print(f"{path.name}: {result}")
         sys.exit(0 if result.is_valid else 1)
 
@@ -61,7 +66,7 @@ def main():
         files_with_warnings = []
         files_without_errors_or_warnings = []
         for f in tqdm.tqdm(files, desc="Validating files"):
-            result = validate_rocrate(str(f))
+            result = validate_rocrate(str(f), heavy=heavy)
             if result.errors:
                 all_valid = False
                 files_with_errors.append(f.name)
@@ -70,6 +75,8 @@ def main():
 
             elif result.warnings:
                 files_with_warnings.append(f.name)
+                print(f"{f.name}: {result}")
+                print(result.warnings)
             else:
                 files_without_errors_or_warnings.append(f.name)
 
@@ -117,7 +124,7 @@ class ValidationResult:
 # TODO: Add support for absolute URIs.
 
 
-def validate_rocrate(file_path: str) -> ValidationResult:
+def validate_rocrate(file_path: str, heavy: bool = False) -> ValidationResult:
     """Validate minimal detached RO-Crate 1.2 structure."""
     result = ValidationResult()
 
@@ -139,6 +146,7 @@ def validate_rocrate(file_path: str) -> ValidationResult:
     if not path.name.endswith("-ro-crate-metadata.json"):
         result.add_warning(
             "File name SHOULD be in the format '{prefix}-ro-crate-metadata.json' (e.g. 'idr0001-ro-crate-metadata.json')"
+            f"It is currently {path.name}"
         )
         return result
     else:
@@ -159,6 +167,15 @@ def validate_rocrate(file_path: str) -> ValidationResult:
     except Exception as e:
         result.add_error(f"Could not read file: {e}")
         return result
+
+    # Check JSON-LD validity using rdflib (not a full JSON-LD validation, but checks basic structure)
+    if heavy:
+        try:
+            g = Graph()
+            g.parse(data=json.dumps(data), format="json-ld")
+        except Exception as e:
+            result.add_error(f"Invalid JSON-LD: {e}")
+            return result
 
     # Check if it's a dict (JSON object)
     if not isinstance(data, dict):
