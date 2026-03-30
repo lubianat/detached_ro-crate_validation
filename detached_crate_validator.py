@@ -65,14 +65,19 @@ def main():
             if result.errors:
                 all_valid = False
                 files_with_errors.append(f.name)
-            # elif result.warnings:
-            #     files_with_warnings.append(f.name)
-            # else:
-            #     files_without_errors_or_warnings.append(f.name)
+                print(f"{f.name}: {result}")
+                print(result.errors)
 
-       print(f"  Files with errors ({len(files_with_errors)}):")
-       print(f" Files with warnings ({len(files_with_warnings)}):")
-    print(f"  Files without errors or warnings ({len(files_without_errors_or_warnings)}
+            elif result.warnings:
+                files_with_warnings.append(f.name)
+            else:
+                files_without_errors_or_warnings.append(f.name)
+
+        print(f"  Files with errors ({len(files_with_errors)}):")
+        print(f" Files with warnings ({len(files_with_warnings)}):")
+        print(
+            f"  Files without errors or warnings ({len(files_without_errors_or_warnings)}):"
+        )
 
         sys.exit(0 if all_valid else 1)
 
