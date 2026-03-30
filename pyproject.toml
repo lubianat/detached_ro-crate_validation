@@ -5,6 +5,16 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "detached-crate-validator"
 version = "0.0.1"
+requires-python = ">=3.10"
+dependencies = [
+    "tqdm",
+    "rdflib",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
 
 [tool.setuptools]
 py-modules = ["detached_crate_validator"]
